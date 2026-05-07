@@ -1,0 +1,118 @@
+site_name: robot_lab-ractor
+site_description: Ractor-based CPU parallelism for the RobotLab LLM agent framework
+site_author: Dewayne VanHoozer
+site_url: https://madbomber.github.io/robot_lab-ractor
+copyright: Copyright &copy; 2025 Dewayne VanHoozer
+
+repo_name: MadBomber/robot_lab-ractor
+repo_url: https://github.com/MadBomber/robot_lab-ractor
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+
+  palette:
+    - scheme: default
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    - scheme: slate
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+  icon:
+    repo: fontawesome/brands/github
+    logo: material/cpu-64-bit
+
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.path
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - header.autohide
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.tooltips
+    - content.action.edit
+    - content.action.view
+
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      title: On this page
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.magiclink:
+      repo_url_shorthand: true
+      user: MadBomber
+      repo: robot_lab-ractor
+      normalize_issue_symbols: true
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/MadBomber/robot_lab-ractor
+      name: robot_lab-ractor on GitHub
+    - icon: fontawesome/solid/gem
+      link: https://rubygems.org/gems/robot_lab-ractor
+      name: robot_lab-ractor on RubyGems
+
+nav:
+  - Home: index.md
+  - Guides:
+      - Ractor Parallelism: guides/ractor-parallelism.md
+  - Design & Planning:
+      - Implementation Plan: superpowers/plans/2026-04-14-ractor-integration.md
+      - Design Spec: superpowers/specs/2026-04-14-ractor-integration-design.md

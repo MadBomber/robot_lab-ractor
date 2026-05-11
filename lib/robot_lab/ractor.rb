@@ -35,3 +35,7 @@ module RobotLab
     end
   end
 end
+
+if defined?(RobotLab) && RobotLab.respond_to?(:register_extension)
+  RobotLab.register_extension(:ractor, :ractor_extension_loaded)
+end

@@ -1,0 +1,63 @@
+AllCops:
+  NewCops: enable
+  SuggestExtensions: false
+  TargetRubyVersion: 3.2
+  Exclude:
+    - 'examples/**/*'
+    - 'vendor/**/*'
+
+# YARD handles API docs; inline class/module doc comments add noise in gems
+Style/Documentation:
+  Enabled: false
+
+Style/StringLiterals:
+  EnforcedStyle: single_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: single_quotes
+
+Style/FrozenStringLiteralComment:
+  EnforcedStyle: always
+
+# Development dependencies belong in the Gemfile, not the gemspec
+Gemspec/DevelopmentDependencies:
+  EnforcedStyle: Gemfile
+
+# 120 chars fits modern screens without sacrificing readability
+Layout/LineLength:
+  Max: 120
+
+# Aligned assignment columns are an intentional style choice in this codebase
+Layout/ExtraSpacing:
+  Enabled: false
+
+Metrics/MethodLength:
+  Max: 25
+  CountAsOne:
+    - heredoc
+    - array
+    - hash
+
+Metrics/AbcSize:
+  Max: 25
+
+Metrics/ClassLength:
+  Max: 150
+
+Metrics/CyclomaticComplexity:
+  Max: 10
+
+Metrics/PerceivedComplexity:
+  Max: 11
+
+# Rake tasks, gemspecs, and test blocks naturally exceed the default length limit
+Metrics/BlockLength:
+  Exclude:
+    - 'Rakefile'
+    - '*.gemspec'
+    - 'test/**/*'
+
+# Short single-char params are acceptable in test helper classes
+Naming/MethodParameterName:
+  Exclude:
+    - 'test/**/*'

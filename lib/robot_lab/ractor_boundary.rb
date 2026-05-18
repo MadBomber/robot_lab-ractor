@@ -35,7 +35,7 @@ module RobotLab
                end
 
       Ractor.make_shareable(result)
-    rescue ::Ractor::IsolationError, ::Ractor::Error => e
+    rescue ::Ractor::Error => e
       raise RactorBoundaryError, "Cannot make value Ractor-shareable: #{e.message}"
     end
   end

@@ -39,27 +39,22 @@ module RobotLab
     # @return [Object] the tool's return value
     # @raise [ToolError] if the tool raises inside the Ractor
     def submit(tool_class_name, args)
-      raise ToolError, "Pool is shut down" if @closed
+      raise ToolError, 'Pool is shut down' if @closed
 
       reply_q = RactorQueue.new(capacity: 1)
-      payload = RactorBoundary.freeze_deep({
-        tool_class: tool_class_name.to_s,
-        args:       args
-      })
+      payload = RactorBoundary.freeze_deep({ tool_class: tool_class_name.to_s, args: args })
 
       job = RactorJob.new(
-        id:          SecureRandom.uuid.freeze,
-        type:        :tool,
-        payload:     payload,
+        id: SecureRandom.uuid.freeze,
+        type: :tool,
+        payload: payload,
         reply_queue: reply_q
       )
 
       @work_q.push(job)
       result = reply_q.pop
 
-      if result.is_a?(RactorJobError)
-        raise ToolError, "Tool '#{tool_class_name}' failed in Ractor: #{result.message}"
-      end
+      raise ToolError, "Tool '#{tool_class_name}' failed in Ractor: #{result.message}" if result.is_a?(RactorJobError)
 
       result
     end
@@ -71,7 +66,28 @@ module RobotLab
 
       @closed = true
       @size.times { @work_q.push(nil) }
-      @workers.each { |w| w.join rescue nil }
+      @workers.each do |w|
+        w.join
+      rescue StandardError
+        nil
+      end
+    end
+
+    # Called inside Ractor worker blocks — must be a class method.
+    def self.process_job(job)
+      tool_class    = Object.const_get(job.payload[:tool_class])
+      result        = tool_class.new.execute(**job.payload[:args].transform_keys(&:to_sym))
+      frozen_result = ::Ractor.make_shareable(result.frozen? ? result : result.dup.freeze)
+      job.reply_queue.push(frozen_result)
+    rescue StandardError => e
+      job.reply_queue.push(wrap_error(e))
+    end
+
+    def self.wrap_error(err)
+      RobotLab::RactorJobError.new(
+        message: err.message.freeze,
+        backtrace: (err.backtrace || []).map(&:freeze).freeze
+      )
     end
 
     private
@@ -82,19 +98,7 @@ module RobotLab
           job = q.pop
           break if job.nil?
 
-          begin
-            tool_class    = Object.const_get(job.payload[:tool_class])
-            tool          = tool_class.new
-            result        = tool.execute(**job.payload[:args].transform_keys(&:to_sym))
-            frozen_result = ::Ractor.make_shareable(result.frozen? ? result : result.dup.freeze)
-            job.reply_queue.push(frozen_result)
-          rescue => e
-            err = RobotLab::RactorJobError.new(
-              message:   e.message.freeze,
-              backtrace: (e.backtrace || []).map(&:freeze).freeze
-            )
-            job.reply_queue.push(err)
-          end
+          RobotLab::RactorWorkerPool.process_job(job)
         end
       end
     end

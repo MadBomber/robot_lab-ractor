@@ -5,16 +5,16 @@
 # code inside the RobotLab namespace, breaking Ractor.new / Ractor.make_shareable
 # calls in RactorWorkerPool, RactorNetworkScheduler, etc.
 
-require "etc"
-require "ractor_queue"
-require "ractor/wrapper"
+require 'etc'
+require 'ractor_queue'
+require 'ractor/wrapper'
 
-require_relative "ractor/version"
-require_relative "ractor_job"
-require_relative "ractor_boundary"
-require_relative "ractor_worker_pool"
-require_relative "ractor_memory_proxy"
-require_relative "ractor_network_scheduler"
+require_relative 'ractor/version'
+require_relative 'ractor_job'
+require_relative 'ractor_boundary'
+require_relative 'ractor_worker_pool'
+require_relative 'ractor_memory_proxy'
+require_relative 'ractor_network_scheduler'
 
 # Extend the RobotLab module with Ractor pool lifecycle methods.
 # Once robot_lab removes its own copies and adds robot_lab-ractor as a
@@ -23,8 +23,11 @@ module RobotLab
   class << self
     def ractor_pool
       @ractor_pool ||= begin
-        size = respond_to?(:config) && config.respond_to?(:ractor_pool_size) \
-          ? (config.ractor_pool_size || :auto) : :auto
+        size = if respond_to?(:config) && config.respond_to?(:ractor_pool_size)
+                 config.ractor_pool_size || :auto
+               else
+                 :auto
+               end
         RactorWorkerPool.new(size: size)
       end
     end

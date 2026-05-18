@@ -31,9 +31,7 @@ module RobotLab
 
     # Returns the Ractor-shareable stub for use inside Ractors.
     # @return [Ractor::Wrapper stub]
-    def stub
-      @stub
-    end
+    attr_reader :stub
 
     # Read a value from the proxied Memory.
     # @param key [Symbol]
@@ -61,7 +59,7 @@ module RobotLab
     def shutdown
       @wrapper.async_stop
       @wrapper.join
-    rescue => e
+    rescue StandardError => e
       warn "RactorMemoryProxy shutdown error: #{e.message}"
     end
   end

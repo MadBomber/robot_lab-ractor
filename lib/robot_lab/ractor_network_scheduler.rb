@@ -50,21 +50,10 @@ module RobotLab
       remaining = specs_with_deps.dup
 
       until remaining.empty?
-        ready, remaining = remaining.partition do |entry|
-          deps = entry[:depends_on]
-          deps == :none || deps == :optional ||
-            Array(deps).all? { |d| completed.key?(d) }
-        end
+        ready, remaining = partition_ready(remaining, completed)
+        raise RobotLab::Error, 'Circular dependency or unresolvable deps in RactorNetworkScheduler' if ready.empty?
 
-        raise RobotLab::Error, "Circular dependency or unresolvable deps in RactorNetworkScheduler" if ready.empty?
-
-        threads = ready.map do |entry|
-          spec = entry[:spec]
-          msg  = completed.values.last || message
-          Thread.new { [spec.name, execute_spec(spec, msg)] }.tap { |t| t.report_on_exception = false }
-        end
-
-        threads.each do |t|
+        dispatch_ready(ready, completed, message).each do |t|
           name, result = t.value
           completed[name] = result
         end
@@ -79,7 +68,38 @@ module RobotLab
 
       @closed = true
       @size.times { @work_q.push(nil) }
-      @workers.each { |w| w.join rescue nil }
+      @workers.each do |w|
+        w.join
+      rescue StandardError
+        nil
+      end
+    end
+
+    # Called inside Ractor worker blocks — must be a class method.
+    def self.process_job(job)
+      spec    = job.payload[:spec]
+      message = job.payload[:message]
+      job.reply_queue.push(build_and_run_robot(spec, message))
+    rescue StandardError => e
+      job.reply_queue.push(wrap_error(e))
+    end
+
+    def self.build_and_run_robot(spec, message)
+      config = spec.config_hash.empty? ? nil : RobotLab::RunConfig.new(**spec.config_hash.transform_keys(&:to_sym))
+      robot  = RobotLab::Robot.new(
+        name: spec.name,
+        template: spec.template&.to_sym,
+        system_prompt: spec.system_prompt,
+        config: config
+      )
+      robot.run(message).last_text_content.to_s.freeze
+    end
+
+    def self.wrap_error(err)
+      RobotLab::RactorJobError.new(
+        message: err.message.freeze,
+        backtrace: (err.backtrace || []).map(&:freeze).freeze
+      )
     end
 
     private
@@ -90,18 +110,16 @@ module RobotLab
       reply_q        = RactorQueue.new(capacity: 1)
 
       job = RactorJob.new(
-        id:          SecureRandom.uuid.freeze,
-        type:        :robot,
-        payload:     RactorBoundary.freeze_deep({ spec: frozen_spec, message: frozen_message }),
+        id: SecureRandom.uuid.freeze,
+        type: :robot,
+        payload: RactorBoundary.freeze_deep({ spec: frozen_spec, message: frozen_message }),
         reply_queue: reply_q
       )
 
       @work_q.push(job)
       result = reply_q.pop
 
-      if result.is_a?(RactorJobError)
-        raise RobotLab::Error, "Robot '#{spec.name}' failed in Ractor: #{result.message}"
-      end
+      raise RobotLab::Error, "Robot '#{spec.name}' failed in Ractor: #{result.message}" if result.is_a?(RactorJobError)
 
       result
     end
@@ -112,27 +130,23 @@ module RobotLab
           job = q.pop
           break if job.nil?
 
-          begin
-            spec   = job.payload[:spec]
-            message = job.payload[:message]
-
-            robot = RobotLab::Robot.new(
-              name:          spec.name,
-              template:      spec.template ? spec.template.to_sym : nil,
-              system_prompt: spec.system_prompt,
-              config:        spec.config_hash.empty? ? nil : RobotLab::RunConfig.new(**spec.config_hash.transform_keys(&:to_sym))
-            )
-
-            robot_result = robot.run(message)
-            job.reply_queue.push(robot_result.last_text_content.to_s.freeze)
-          rescue => e
-            err = RobotLab::RactorJobError.new(
-              message:   e.message.freeze,
-              backtrace: (e.backtrace || []).map(&:freeze).freeze
-            )
-            job.reply_queue.push(err)
-          end
+          RobotLab::RactorNetworkScheduler.process_job(job)
         end
+      end
+    end
+
+    def partition_ready(remaining, completed)
+      remaining.partition do |entry|
+        deps = entry[:depends_on]
+        deps == :none || deps == :optional || Array(deps).all? { |d| completed.key?(d) }
+      end
+    end
+
+    def dispatch_ready(ready, completed, message)
+      ready.map do |entry|
+        spec = entry[:spec]
+        msg  = completed.values.last || message
+        Thread.new { [spec.name, execute_spec(spec, msg)] }.tap { |t| t.report_on_exception = false }
       end
     end
   end

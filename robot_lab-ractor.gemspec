@@ -37,5 +37,5 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency 'ractor_queue'
   spec.add_dependency 'ractor-wrapper'
-  spec.add_dependency 'robot_lab'
+  spec.add_dependency 'robot_lab', '~> 0.2.0'
 end

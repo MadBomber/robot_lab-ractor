@@ -92,6 +92,7 @@ module RobotLab
         system_prompt: spec.system_prompt,
         config: config
       )
+      spec.hook_classes.each { |handler| robot.on(handler) }
       robot.run(message).last_text_content.to_s.freeze
     end
 

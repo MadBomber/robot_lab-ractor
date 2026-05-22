@@ -33,6 +33,19 @@ module RobotLab
       assert Ractor.shareable?(spec)
     end
 
+    def test_robot_spec_with_hook_classes_is_shareable
+      stub_hook = Class.new(RobotLab::Hook)
+      spec = RobotLab::RobotSpec.new(
+        name: 'bot',
+        template: nil,
+        system_prompt: 'Be helpful.',
+        config_hash: {}.freeze,
+        hook_classes: [stub_hook].freeze
+      )
+      assert Ractor.shareable?(spec),
+             'RobotSpec with hook_classes must be Ractor-shareable (classes are Ruby constants)'
+    end
+
     def test_ractor_boundary_error_is_subclass_of_error
       assert RobotLab::RactorBoundaryError < RobotLab::Error
     end

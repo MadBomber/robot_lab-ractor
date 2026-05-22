@@ -2,6 +2,8 @@
 
 source 'https://rubygems.org'
 
+gem 'robot_lab', path: '../robot_lab'
+
 gemspec
 
 group :development, :test do

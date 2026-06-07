@@ -1,0 +1,10 @@
+# frozen_string_literal: true
+# robot_lab-ractor — CPU parallelism via Ractors.
+
+import_up "repo_dev.loki"
+
+class Tasks
+  @@gem_name ||= "robot_lab-ractor".freeze
+
+  header "robot_lab-ractor v#{gem_version} — CPU-parallel robot execution"
+end

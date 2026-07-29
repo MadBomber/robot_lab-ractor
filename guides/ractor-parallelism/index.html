@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -33,7 +33,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -626,6 +626,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#hooks-in-ractor-workers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hooks in Ractor Workers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Hooks in Ractor Workers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#writing-a-ractor-safe-hook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Writing a Ractor-Safe Hook
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-frozen-data-contract" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -785,6 +813,17 @@
     <span class="md-ellipsis">
       
         Constraints and Limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runnable-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runnable Examples
       
     </span>
   </a>
@@ -1099,6 +1138,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#hooks-in-ractor-workers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hooks in Ractor Workers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Hooks in Ractor Workers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#writing-a-ractor-safe-hook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Writing a Ractor-Safe Hook
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-frozen-data-contract" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1258,6 +1325,17 @@
     <span class="md-ellipsis">
       
         Constraints and Limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runnable-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runnable Examples
       
     </span>
   </a>
@@ -1543,41 +1621,110 @@
 </span></code></pre></div>
 <p>Values written via <code>set</code> are automatically deep-frozen before crossing the boundary.</p>
 <hr />
+<h2 id="hooks-in-ractor-workers">Hooks in Ractor Workers<a class="headerlink" href="#hooks-in-ractor-workers" title="Permanent link">&para;</a></h2>
+<p><code>RactorNetworkScheduler</code> carries a robot's registered <code>RobotLab::Hook</code> handler
+classes across the Ractor boundary so the full hook pipeline still fires
+inside each worker.</p>
+<p>When the scheduler builds a <code>RobotSpec</code>, it collects handler classes from all
+three registration levels and stores them in the frozen <code>hook_classes</code> field:</p>
+<div class="language-ruby highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">ractor_hook_classes_for</span><span class="p">(</span><span class="n">robot</span><span class="p">)</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="o">[</span><span class="no">RobotLab</span><span class="o">.</span><span class="n">hooks</span><span class="p">,</span><span class="w"> </span><span class="vi">@hooks</span><span class="p">,</span><span class="w"> </span><span class="n">robot</span><span class="o">.</span><span class="n">hooks</span><span class="o">]</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="o">.</span><span class="n">flat_map</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">|</span><span class="n">r</span><span class="o">|</span><span class="w"> </span><span class="n">r</span><span class="o">.</span><span class="n">registrations</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="o">&amp;</span><span class="ss">:handler_class</span><span class="p">)</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="o">.</span><span class="n">uniq</span><span class="o">.</span><span class="n">freeze</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="k">end</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Registration level</th>
+<th>Collected by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RobotLab.on(Hook)</code></td>
+<td><code>RobotLab.hooks</code> (global)</td>
+</tr>
+<tr>
+<td><code>network.on(Hook)</code></td>
+<td><code>@hooks</code> (network)</td>
+</tr>
+<tr>
+<td><code>robot.on(Hook)</code></td>
+<td><code>robot.hooks</code> (robot)</td>
+</tr>
+</tbody>
+</table>
+<p>Inside each worker, the scheduler re-registers the handlers on the freshly
+built robot before running it:</p>
+<div class="language-ruby highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">spec</span><span class="o">.</span><span class="n">hook_classes</span><span class="o">.</span><span class="n">each</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">|</span><span class="n">handler</span><span class="o">|</span><span class="w"> </span><span class="n">robot</span><span class="o">.</span><span class="n">on</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">robot</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">message</span><span class="p">)</span><span class="w">   </span><span class="c1"># full hook pipeline fires here</span>
+</span></code></pre></div>
+<p>This works because a Hook handler is a Ruby <strong>class</strong>, and classes are
+Ractor-shareable constants — they cross the boundary without any
+serialization.</p>
+<h3 id="writing-a-ractor-safe-hook">Writing a Ractor-Safe Hook<a class="headerlink" href="#writing-a-ractor-safe-hook" title="Permanent link">&para;</a></h3>
+<p>A hook handler that may run inside a Ractor worker must follow the same
+statelessness rules as a Ractor-safe tool:</p>
+<ul>
+<li><strong>No class-level state.</strong> <code>@ivars</code> set on the class object live in the main
+  Ractor; non-main Ractors cannot read or write them, even when the values
+  themselves would be shareable.</li>
+<li><strong>Accumulate events on the context, not the class.</strong> Push results into
+  <code>ctx.local</code> (a plain object local to that Ractor's run) and return them as
+  part of the worker's result tuple so the main thread can aggregate them
+  after <code>Ractor#value</code>.</li>
+<li><strong>Avoid <code>$stdout.puts</code> for anything you need interleaved with main-thread
+  output.</strong> Output from non-main Ractors is buffered per-Ractor and only
+  flushes at Ractor exit. <code>Kernel#warn</code> is silently dropped. Reading the
+  <code>STDOUT</code> constant raises <code>IsolationError</code>. <code>$stderr.puts</code> and a
+  <code>File.open(frozen_path, "a")</code> opened fresh inside the worker are both safe.</li>
+<li><strong><code>on_error</code> fires inside the failing Ractor</strong>, before the error propagates
+  back to the main thread. Surface whatever you need via the return tuple —
+  the main thread only learns of the failure when it calls <code>worker.value</code>.</li>
+</ul>
+<p><code>examples/03_ractor_hooks.rb</code> walks through all of this with two example
+handlers (<code>TraceHook</code>, <code>PerfHook</code>) plus <code>RobotLab::Xyzzy</code> — a fully
+Ractor-safe tracer covering all five hook families (<code>run</code>, <code>llm_generation</code>,
+<code>tool_call</code>, <code>network_run</code>, <code>task</code>) — run directly against the hook mechanic
+without touching <code>ruby_llm</code> (which has class-level Proc callbacks that
+prevent construction inside Ractors today).</p>
+<hr />
 <h2 id="the-frozen-data-contract">The Frozen-Data Contract<a class="headerlink" href="#the-frozen-data-contract" title="Permanent link">&para;</a></h2>
 <p>Everything that crosses a Ractor boundary must be Ractor-shareable: frozen strings, frozen hashes, frozen arrays, <code>Data.define</code> structs, and integers/symbols/nil.</p>
 <p><code>RactorBoundary.freeze_deep</code> recursively freezes a nested Hash/Array structure and raises <code>RactorBoundaryError</code> if it encounters something that cannot be made shareable (like a <code>StringIO</code> or a <code>Proc</code>):</p>
-<div class="language-ruby highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">safe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">RactorBoundary</span><span class="o">.</span><span class="n">freeze_deep</span><span class="p">({</span><span class="w"> </span><span class="ss">key</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;value&quot;</span><span class="p">,</span><span class="w"> </span><span class="ss">tags</span><span class="p">:</span><span class="w"> </span><span class="o">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;b&quot;</span><span class="o">]</span><span class="w"> </span><span class="p">})</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="c1"># =&gt; { key: &quot;value&quot;, tags: [&quot;a&quot;, &quot;b&quot;] } (all frozen)</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="no">RobotLab</span><span class="o">::</span><span class="no">RactorBoundary</span><span class="o">.</span><span class="n">freeze_deep</span><span class="p">(</span><span class="no">StringIO</span><span class="o">.</span><span class="n">new</span><span class="p">)</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="c1"># =&gt; raises RobotLab::RactorBoundaryError</span>
+<div class="language-ruby highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">safe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">RactorBoundary</span><span class="o">.</span><span class="n">freeze_deep</span><span class="p">({</span><span class="w"> </span><span class="ss">key</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;value&quot;</span><span class="p">,</span><span class="w"> </span><span class="ss">tags</span><span class="p">:</span><span class="w"> </span><span class="o">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;b&quot;</span><span class="o">]</span><span class="w"> </span><span class="p">})</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="c1"># =&gt; { key: &quot;value&quot;, tags: [&quot;a&quot;, &quot;b&quot;] } (all frozen)</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="no">RobotLab</span><span class="o">::</span><span class="no">RactorBoundary</span><span class="o">.</span><span class="n">freeze_deep</span><span class="p">(</span><span class="no">StringIO</span><span class="o">.</span><span class="n">new</span><span class="p">)</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="c1"># =&gt; raises RobotLab::RactorBoundaryError</span>
 </span></code></pre></div>
 <p>You generally do not need to call this directly — <code>RactorWorkerPool#submit</code> and <code>RactorMemoryProxy#set</code> call it for you. But it is public if you build tooling on top.</p>
 <hr />
 <h2 id="error-handling">Error Handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h2>
 <h3 id="tool-errors">Tool Errors<a class="headerlink" href="#tool-errors" title="Permanent link">&para;</a></h3>
 <p>If a Ractor-safe tool raises inside a worker, the worker catches the error, wraps it in a <code>RactorJobError</code>, and sends it back through the reply queue. The pool unwraps it and re-raises as <code>RobotLab::ToolError</code>:</p>
-<div class="language-ruby highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">begin</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="n">pool</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="s2">&quot;MyTool&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="ss">input</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bad data&quot;</span><span class="w"> </span><span class="p">})</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="k">rescue</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">ToolError</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">e</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">  </span><span class="nb">puts</span><span class="w"> </span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="w">  </span><span class="c1"># &quot;Tool &#39;MyTool&#39; failed in Ractor: ...&quot;</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="k">end</span>
+<div class="language-ruby highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">begin</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="n">pool</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="s2">&quot;MyTool&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="ss">input</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bad data&quot;</span><span class="w"> </span><span class="p">})</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="k">rescue</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">ToolError</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">e</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">  </span><span class="nb">puts</span><span class="w"> </span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="w">  </span><span class="c1"># &quot;Tool &#39;MyTool&#39; failed in Ractor: ...&quot;</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="k">end</span>
 </span></code></pre></div>
 <h3 id="robot-pipeline-errors">Robot Pipeline Errors<a class="headerlink" href="#robot-pipeline-errors" title="Permanent link">&para;</a></h3>
 <p>The scheduler raises <code>RobotLab::Error</code> if a robot fails inside a Ractor worker:</p>
-<div class="language-ruby highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">begin</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="n">network</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="ss">message</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;go&quot;</span><span class="p">)</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="k">rescue</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">Error</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">e</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">  </span><span class="nb">puts</span><span class="w"> </span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="w">  </span><span class="c1"># &quot;Robot &#39;summarize&#39; failed in Ractor: ...&quot;</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="k">end</span>
+<div class="language-ruby highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">begin</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="n">network</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="ss">message</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;go&quot;</span><span class="p">)</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="k">rescue</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">Error</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">e</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span><span class="nb">puts</span><span class="w"> </span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="w">  </span><span class="c1"># &quot;Robot &#39;summarize&#39; failed in Ractor: ...&quot;</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="k">end</span>
 </span></code></pre></div>
 <h3 id="boundary-errors">Boundary Errors<a class="headerlink" href="#boundary-errors" title="Permanent link">&para;</a></h3>
 <p>Passing unshareable data raises <code>RobotLab::RactorBoundaryError</code> before any Ractor is involved:</p>
-<div class="language-ruby highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">begin</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="n">pool</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="s2">&quot;MyTool&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="ss">io</span><span class="p">:</span><span class="w"> </span><span class="no">StringIO</span><span class="o">.</span><span class="n">new</span><span class="w"> </span><span class="p">})</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="k">rescue</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">RactorBoundaryError</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">e</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">  </span><span class="nb">puts</span><span class="w"> </span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="w">  </span><span class="c1"># &quot;Cannot make value Ractor-shareable: ...&quot;</span>
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="k">end</span>
+<div class="language-ruby highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">begin</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="n">pool</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="s2">&quot;MyTool&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="ss">io</span><span class="p">:</span><span class="w"> </span><span class="no">StringIO</span><span class="o">.</span><span class="n">new</span><span class="w"> </span><span class="p">})</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="k">rescue</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">RactorBoundaryError</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">e</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">  </span><span class="nb">puts</span><span class="w"> </span><span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="w">  </span><span class="c1"># &quot;Cannot make value Ractor-shareable: ...&quot;</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="k">end</span>
 </span></code></pre></div>
 <hr />
 <h2 id="configuration-reference">Configuration Reference<a class="headerlink" href="#configuration-reference" title="Permanent link">&para;</a></h2>
@@ -1611,21 +1758,21 @@
 <p>Ractors add overhead: freezing data, queue coordination, thread synchronization. For fast tools or networks with few tasks, standard threads are often faster. Measure first.</p>
 <h3 id="2-keep-tool-state-stateless">2. Keep Tool State Stateless<a class="headerlink" href="#2-keep-tool-state-stateless" title="Permanent link">&para;</a></h3>
 <p>The safest Ractor-safe tool is a pure function:</p>
-<div class="language-ruby highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">NormalizeText</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="no">RubyLLM</span><span class="o">::</span><span class="no">Tool</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="n">ractor_safe</span><span class="w"> </span><span class="kp">true</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span><span class="n">description</span><span class="w"> </span><span class="s2">&quot;Unicode-normalize and strip a string&quot;</span>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span><span class="n">param</span><span class="w"> </span><span class="ss">:text</span><span class="p">,</span><span class="w"> </span><span class="ss">type</span><span class="p">:</span><span class="w"> </span><span class="ss">:string</span><span class="p">,</span><span class="w"> </span><span class="ss">desc</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Input text&quot;</span>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="ss">text</span><span class="p">:)</span>
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">    </span><span class="n">text</span><span class="o">.</span><span class="n">unicode_normalize</span><span class="p">(</span><span class="ss">:nfkc</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span>
-</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">  </span><span class="k">end</span>
-</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="k">end</span>
+<div class="language-ruby highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">NormalizeText</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="no">RubyLLM</span><span class="o">::</span><span class="no">Tool</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="n">ractor_safe</span><span class="w"> </span><span class="kp">true</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">  </span><span class="n">description</span><span class="w"> </span><span class="s2">&quot;Unicode-normalize and strip a string&quot;</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">  </span><span class="n">param</span><span class="w"> </span><span class="ss">:text</span><span class="p">,</span><span class="w"> </span><span class="ss">type</span><span class="p">:</span><span class="w"> </span><span class="ss">:string</span><span class="p">,</span><span class="w"> </span><span class="ss">desc</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Input text&quot;</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="ss">text</span><span class="p">:)</span>
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">    </span><span class="n">text</span><span class="o">.</span><span class="n">unicode_normalize</span><span class="p">(</span><span class="ss">:nfkc</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span>
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">  </span><span class="k">end</span>
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="k">end</span>
 </span></code></pre></div>
 <h3 id="3-freeze-tool-return-values">3. Freeze Tool Return Values<a class="headerlink" href="#3-freeze-tool-return-values" title="Permanent link">&para;</a></h3>
 <p>Tool results travel back through the reply queue — freeze them proactively to avoid the overhead of <code>Ractor.make_shareable</code>:</p>
-<div class="language-ruby highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="nb">id</span><span class="p">:)</span>
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nb">id</span><span class="p">:</span><span class="w"> </span><span class="nb">id</span><span class="p">,</span><span class="w"> </span><span class="nb">name</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;result&quot;</span><span class="w"> </span><span class="p">}</span><span class="o">.</span><span class="n">freeze</span>
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="k">end</span>
+<div class="language-ruby highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="nb">id</span><span class="p">:)</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nb">id</span><span class="p">:</span><span class="w"> </span><span class="nb">id</span><span class="p">,</span><span class="w"> </span><span class="nb">name</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;result&quot;</span><span class="w"> </span><span class="p">}</span><span class="o">.</span><span class="n">freeze</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="k">end</span>
 </span></code></pre></div>
 <h3 id="4-parallel-mode-doesnt-share-robot-instances">4. Parallel Mode Doesn't Share Robot Instances<a class="headerlink" href="#4-parallel-mode-doesnt-share-robot-instances" title="Permanent link">&para;</a></h3>
 <p>Each Ractor worker constructs a <strong>fresh Robot</strong> from the frozen spec. Side-effects on the original robot objects (callbacks, in-memory state) are not visible inside workers. Use <code>Memory</code> (via <code>RactorMemoryProxy</code>) for shared state.</p>
@@ -1633,7 +1780,7 @@
 <p><code>ruby_llm</code> is not Ractor-safe. Workers spawn a Thread internally for each LLM call and block the Ractor fiber on the thread result. This is transparent — you don't need to do anything — but it means robot-mode Ractors are I/O-concurrent, not purely CPU-parallel.</p>
 <h3 id="6-shut-down-the-pool-cleanly">6. Shut Down the Pool Cleanly<a class="headerlink" href="#6-shut-down-the-pool-cleanly" title="Permanent link">&para;</a></h3>
 <p>Always shut down the global pool before exiting, especially in scripts:</p>
-<div class="language-ruby highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="nb">at_exit</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">.</span><span class="n">shutdown_ractor_pool</span><span class="w"> </span><span class="p">}</span>
+<div class="language-ruby highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="nb">at_exit</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">.</span><span class="n">shutdown_ractor_pool</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <hr />
 <h2 id="constraints-and-limitations">Constraints and Limitations<a class="headerlink" href="#constraints-and-limitations" title="Permanent link">&para;</a></h2>
@@ -1645,6 +1792,14 @@
 <li><strong>Ruby version.</strong> Ractors require Ruby 3.0+. <code>Ractor#value</code> / <code>Ractor#join</code> are the supported APIs from Ruby 4.0 onwards (<code>Ractor#take</code> was removed).</li>
 </ul>
 <hr />
+<h2 id="runnable-examples">Runnable Examples<a class="headerlink" href="#runnable-examples" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>examples/01_ractor_tools.rb</code> — CPU-bound tools routed through <code>RactorWorkerPool</code></li>
+<li><code>examples/02_ractor_network.rb</code> — a robot network run via <code>RactorNetworkScheduler</code></li>
+<li><code>examples/03_ractor_hooks.rb</code> — the hook system firing inside Ractor workers (no LLM API key required)</li>
+</ul>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>bundle<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>ruby<span class="w"> </span>examples/03_ractor_hooks.rb
+</span></code></pre></div>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="using-tools.md">Using Tools</a> — Tool definitions and configuration</li>
@@ -1777,7 +1932,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.path", "navigation.indexes", "navigation.top", "navigation.footer", "toc.follow", "search.suggest", "search.highlight", "search.share", "header.autohide", "content.code.copy", "content.code.annotate", "content.tabs.link", "content.tooltips", "content.action.edit", "content.action.view"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

@@ -33,5 +33,9 @@ module RobotLab
   #     system_prompt: nil,
   #     config_hash:   { model: "claude-sonnet-4" }.freeze
   #   )
-  RobotSpec = Data.define(:name, :template, :system_prompt, :config_hash)
+  RobotSpec = Data.define(:name, :template, :system_prompt, :config_hash, :hook_classes) do
+    def initialize(name:, template:, system_prompt:, config_hash:, hook_classes: [].freeze)
+      super
+    end
+  end
 end

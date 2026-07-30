@@ -229,6 +229,71 @@ Values written via `set` are automatically deep-frozen before crossing the bound
 
 ---
 
+## Hooks in Ractor Workers
+
+`RactorNetworkScheduler` carries a robot's registered `RobotLab::Hook` handler
+classes across the Ractor boundary so the full hook pipeline still fires
+inside each worker.
+
+When the scheduler builds a `RobotSpec`, it collects handler classes from all
+three registration levels and stores them in the frozen `hook_classes` field:
+
+```ruby
+def ractor_hook_classes_for(robot)
+  [RobotLab.hooks, @hooks, robot.hooks]
+    .flat_map { |r| r.registrations.map(&:handler_class) }
+    .uniq.freeze
+end
+```
+
+| Registration level | Collected by |
+|---|---|
+| `RobotLab.on(Hook)` | `RobotLab.hooks` (global) |
+| `network.on(Hook)` | `@hooks` (network) |
+| `robot.on(Hook)` | `robot.hooks` (robot) |
+
+Inside each worker, the scheduler re-registers the handlers on the freshly
+built robot before running it:
+
+```ruby
+spec.hook_classes.each { |handler| robot.on(handler) }
+robot.run(message)   # full hook pipeline fires here
+```
+
+This works because a Hook handler is a Ruby **class**, and classes are
+Ractor-shareable constants — they cross the boundary without any
+serialization.
+
+### Writing a Ractor-Safe Hook
+
+A hook handler that may run inside a Ractor worker must follow the same
+statelessness rules as a Ractor-safe tool:
+
+- **No class-level state.** `@ivars` set on the class object live in the main
+  Ractor; non-main Ractors cannot read or write them, even when the values
+  themselves would be shareable.
+- **Accumulate events on the context, not the class.** Push results into
+  `ctx.local` (a plain object local to that Ractor's run) and return them as
+  part of the worker's result tuple so the main thread can aggregate them
+  after `Ractor#value`.
+- **Avoid `$stdout.puts` for anything you need interleaved with main-thread
+  output.** Output from non-main Ractors is buffered per-Ractor and only
+  flushes at Ractor exit. `Kernel#warn` is silently dropped. Reading the
+  `STDOUT` constant raises `IsolationError`. `$stderr.puts` and a
+  `File.open(frozen_path, "a")` opened fresh inside the worker are both safe.
+- **`on_error` fires inside the failing Ractor**, before the error propagates
+  back to the main thread. Surface whatever you need via the return tuple —
+  the main thread only learns of the failure when it calls `worker.value`.
+
+`examples/03_ractor_hooks.rb` walks through all of this with two example
+handlers (`TraceHook`, `PerfHook`) plus `RobotLab::Xyzzy` — a fully
+Ractor-safe tracer covering all five hook families (`run`, `llm_generation`,
+`tool_call`, `network_run`, `task`) — run directly against the hook mechanic
+without touching `ruby_llm` (which has class-level Proc callbacks that
+prevent construction inside Ractors today).
+
+---
+
 ## The Frozen-Data Contract
 
 Everything that crosses a Ractor boundary must be Ractor-shareable: frozen strings, frozen hashes, frozen arrays, `Data.define` structs, and integers/symbols/nil.
@@ -355,6 +420,16 @@ at_exit { RobotLab.shutdown_ractor_pool }
 - **Ruby version.** Ractors require Ruby 3.0+. `Ractor#value` / `Ractor#join` are the supported APIs from Ruby 4.0 onwards (`Ractor#take` was removed).
 
 ---
+
+## Runnable Examples
+
+- `examples/01_ractor_tools.rb` — CPU-bound tools routed through `RactorWorkerPool`
+- `examples/02_ractor_network.rb` — a robot network run via `RactorNetworkScheduler`
+- `examples/03_ractor_hooks.rb` — the hook system firing inside Ractor workers (no LLM API key required)
+
+```bash
+bundle exec ruby examples/03_ractor_hooks.rb
+```
 
 ## Next Steps
 

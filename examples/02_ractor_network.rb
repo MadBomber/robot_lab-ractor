@@ -30,15 +30,9 @@
 #   bundle exec ruby examples/30_ractor_network.rb              # Parts 1 & 2
 #   ANTHROPIC_API_KEY=key ruby examples/30_ractor_network.rb    # Parts 1, 2 & 3
 
-require "robot_lab"
-require "robot_lab/ractor"
+require_relative "common"
 
-puts "=" * 62
-puts "Example 30: Ractor Network Scheduler"
-puts "=" * 62
-puts
-
-DIVIDER = ("─" * 54).freeze
+banner("Ractor Network Scheduler")
 
 # =============================================================================
 # Part 1: Simulated scheduler — dependency waves and timing
@@ -72,8 +66,7 @@ LATENCIES = {
 #
 #   Speedup    ≈ 1.7×
 
-puts "── Part 1: Simulated parallel run (no API key) ───────────"
-puts
+section("Part 1: Simulated parallel run (no API key)")
 
 # SimulatedScheduler overrides execute_spec so that instead of
 # constructing a real Robot and calling the LLM, it just sleeps for
@@ -139,8 +132,7 @@ puts
 # Part 2: Network.new(parallel_mode: :ractor) API
 # =============================================================================
 
-puts "── Part 2: Network.new(parallel_mode: :ractor) ───────────"
-puts
+section("Part 2: Network.new(parallel_mode: :ractor)")
 
 # When parallel_mode: :ractor is set on a Network, network.run(message:)
 # routes through RactorNetworkScheduler instead of SimpleFlow::Pipeline.
@@ -196,19 +188,16 @@ puts
 # =============================================================================
 
 unless ENV["ANTHROPIC_API_KEY"]
-  puts "── Part 3: Live LLM run ──────────────────────────────────"
+  section("Part 3: Live LLM run")
   puts "   Set ANTHROPIC_API_KEY to run the real pipeline."
   puts "   Expected behavior: headline_finder, background_brief, and"
   puts "   fact_checker run in parallel; report_writer follows."
   puts
-  puts "=" * 62
-  puts "Example 30 complete."
-  puts "=" * 62
+  hr
   exit 0
 end
 
-puts "── Part 3: Live LLM run (ANTHROPIC_API_KEY detected) ─────"
-puts
+section("Part 3: Live LLM run (ANTHROPIC_API_KEY detected)")
 
 puts "  Running 4-robot research pipeline on:"
 puts "  \"#{topic}\""
@@ -250,6 +239,4 @@ rescue RobotLab::Error => e
 end
 
 puts
-puts "=" * 62
-puts "Example 30 complete."
-puts "=" * 62
+hr

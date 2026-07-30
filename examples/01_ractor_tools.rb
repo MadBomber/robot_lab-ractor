@@ -26,8 +26,7 @@
 #   SHA-256 rounds (~320 ms on modern hardware) so the 4-6× speedup is
 #   clearly visible on a 6-core machine.
 
-require "robot_lab"
-require "robot_lab/ractor"
+require_relative "common"
 require "digest"
 
 # Always shut down the pool when the process exits.
@@ -114,12 +113,7 @@ end
 # Demo
 # =============================================================================
 
-puts "=" * 62
-puts "Example 29: Ractor-Safe CPU Tools"
-puts "=" * 62
-puts
-
-DIVIDER = ("─" * 54).freeze
+banner("Ractor-Safe CPU Tools")
 
 SAMPLE_TEXTS = [
   "Ruby makes programmer happiness a first-class concern in language design.",
@@ -130,10 +124,7 @@ SAMPLE_TEXTS = [
   "Simplicity is the ultimate sophistication in software architecture."
 ].freeze
 
-# ── 1. ractor_safe? flags ─────────────────────────────────────
-
-puts "1.  ractor_safe? flags"
-puts "    #{DIVIDER}"
+section("1.  ractor_safe? flags")
 
 {
   "WordStatsTool"     => WordStatsTool,
@@ -146,10 +137,7 @@ puts "    #{DIVIDER}"
 end
 puts
 
-# ── 2. RactorBoundary.freeze_deep ─────────────────────────────
-
-puts "2.  RactorBoundary.freeze_deep"
-puts "    #{DIVIDER}"
+section("2.  RactorBoundary.freeze_deep")
 
 nested = { tags: ["ruby", "ractor"], meta: { version: 2 } }
 frozen = RobotLab::RactorBoundary.freeze_deep(nested)
@@ -170,11 +158,8 @@ rescue RobotLab::RactorBoundaryError => e
 end
 puts
 
-# ── 3. Single pool submissions ─────────────────────────────────
-
 pool = RobotLab.ractor_pool
-puts "3.  Worker pool  (#{pool.size} Ractors — one per CPU core)"
-puts "    #{DIVIDER}"
+section("3.  Worker pool  (#{pool.size} Ractors — one per CPU core)")
 
 sample = SAMPLE_TEXTS.first
 
@@ -185,10 +170,7 @@ r = pool.submit("ReadabilityTool", { text: sample })
 puts "    ReadabilityTool: words_per_sentence=#{r[:words_per_sentence]}  long_word_pct=#{r[:long_word_pct]}%"
 puts
 
-# ── 4. ToolError propagation ───────────────────────────────────
-
-puts "4.  ToolError propagation"
-puts "    #{DIVIDER}"
+section("4.  ToolError propagation")
 puts "    Submitting nil as :text (WordStatsTool will call nil.scan — NoMethodError)"
 puts
 
@@ -200,10 +182,7 @@ rescue RobotLab::ToolError => e
 end
 puts
 
-# ── 5. Parallel batch vs sequential ───────────────────────────
-
-puts "5.  Parallel batch — #{SAMPLE_TEXTS.length} jobs, each doing #{HeavyDigestTool::ROUNDS.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1_').reverse} SHA-256 rounds"
-puts "    #{DIVIDER}"
+section("5.  Parallel batch — #{SAMPLE_TEXTS.length} jobs, #{HeavyDigestTool::ROUNDS.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1_').reverse} SHA-256 rounds each")
 
 # Parallel: one Thread per job, all submitted simultaneously.
 t0       = Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -230,13 +209,8 @@ puts
 puts "    First result (truncated digest): #{parallel_results.first}"
 puts
 
-# ── 6. Shutdown ────────────────────────────────────────────────
-
-puts "6.  Shutdown"
-puts "    #{DIVIDER}"
+section("6.  Shutdown")
 RobotLab.shutdown_ractor_pool
 puts "    Pool shut down cleanly (poison-pill × #{pool.size} workers)."
 puts
-puts "=" * 62
-puts "Example 29 complete."
-puts "=" * 62
+hr

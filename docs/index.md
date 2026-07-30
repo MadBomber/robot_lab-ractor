@@ -60,6 +60,12 @@ pool = RobotLab.ractor_pool
 RobotLab.shutdown_ractor_pool
 ```
 
+## Examples
+
+- `examples/01_ractor_tools.rb` — CPU-bound tools through `RactorWorkerPool`
+- `examples/02_ractor_network.rb` — a robot network run via `RactorNetworkScheduler`
+- `examples/03_ractor_hooks.rb` — the hook system firing inside Ractor workers (no LLM API key required)
+
 ## Links
 
 - [Ractor Parallelism Guide](guides/ractor-parallelism.md)

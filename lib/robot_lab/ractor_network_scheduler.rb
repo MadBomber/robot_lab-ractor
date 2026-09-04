@@ -63,6 +63,7 @@ module RobotLab
     end
 
     # Gracefully shut down worker Ractors.
+    # :reek:UncommunicativeVariableName -- single-char block param (w = worker) is accepted project convention.
     def shutdown
       return if @closed
 
@@ -136,6 +137,7 @@ module RobotLab
       end
     end
 
+    # :reek:FeatureEnvy :reek:NestedIterators -- readiness predicate over each entry's depends_on list; the inner all? defines "ready".
     def partition_ready(remaining, completed)
       remaining.partition do |entry|
         deps = entry[:depends_on]

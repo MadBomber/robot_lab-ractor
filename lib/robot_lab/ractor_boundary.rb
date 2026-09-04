@@ -16,6 +16,7 @@ module RobotLab
     # @param obj [Object] the value to freeze
     # @return [Object] a frozen, Ractor-shareable copy
     # @raise [RactorBoundaryError] if the value cannot be made shareable
+    # :reek:TooManyStatements -- recursive case dispatch per container type plus dup/error fallback; splitting obscures the recursion.
     def self.freeze_deep(obj)
       return obj if Ractor.shareable?(obj)
 

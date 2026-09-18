@@ -45,7 +45,7 @@ end
 class WordStatsTool < TextTool
   description "Count words, sentences, and average word length"
 
-  param :text, type: :string, desc: "Text to analyze"
+  parameter :text, type: :string, description: "Text to analyze"
 
   def execute(text:)
     words     = text.scan(/\b\w+\b/)
@@ -60,7 +60,7 @@ end
 class ReadabilityTool < TextTool
   description "Estimate words-per-sentence and long-word density"
 
-  param :text, type: :string, desc: "Text to analyze"
+  parameter :text, type: :string, description: "Text to analyze"
 
   def execute(text:)
     words      = text.scan(/\b\w+\b/)
@@ -85,7 +85,7 @@ class HeavyDigestTool < TextTool
 
   ROUNDS = 500_000
 
-  param :text, type: :string, desc: "Seed text"
+  parameter :text, type: :string, description: "Seed text"
 
   def execute(text:)
     digest = text
@@ -101,7 +101,7 @@ class RequestCounterTool < RobotLab::Tool
 
   @@hits = 0   # mutable class variable — Ractor workers cannot access this
 
-  param :text, type: :string, desc: "Text to count"
+  parameter :text, type: :string, description: "Text to count"
 
   def execute(text:)
     @@hits += 1

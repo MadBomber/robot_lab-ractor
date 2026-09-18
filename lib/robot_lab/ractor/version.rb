@@ -4,6 +4,6 @@ module RobotLab
   # RactorPool (not Ractor) avoids shadowing Ruby's built-in Ractor class
   # for all code within the RobotLab namespace.
   module RactorPool
-    VERSION = '0.2.8'
+    VERSION = '0.3.0'
   end
 end

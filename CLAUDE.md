@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 bundle exec rake test        # Run full test suite
-ruby -Ilib:test test/<file>  # Run a single test file
+ruby -Ilib:test test/robot_lab/<file>  # Run a single test file
 ```
 
 ## CRITICAL: Never define `module RobotLab::Ractor`
@@ -27,9 +27,9 @@ result = pool.submit("MyTool", { arg: "value" })
 pool.shutdown
 ```
 
-Accessed globally via `RobotLab.ractor_pool` / `RobotLab.shutdown_ractor_pool`.
+Accessed globally via `RobotLab.ractor_pool` / `RobotLab.shutdown_ractor_pool`. The global pool is always sized `:auto`: `ractor_pool` looks for `RobotLab.config.ractor_pool_size`, which core's `Config` does not define.
 
-**`RactorNetworkScheduler`** (`ractor_network_scheduler.rb`) — Schedules frozen `RobotSpec` payloads across Ractor workers in dependency order. Entry-point robots (`:none` deps) dispatch immediately; dependent robots dispatch once all named deps complete.
+**`RactorNetworkScheduler`** (`ractor_network_scheduler.rb`) — Schedules frozen `RobotSpec` payloads across Ractor workers in dependency order. Entry-point robots (`:none` deps) dispatch immediately; dependent robots dispatch once all named deps complete. Deps are matched against `RobotSpec#name` strings. A task's message comes from `RactorNetworkScheduler.message_for`: the initial message with no deps, the dep's result with one, and `[name]\nresult` blocks in `depends_on` order (blank-line separated) with several. The `memory:` argument is retained (`#memory`) but never shared with workers. Workers call `Robot.new` + `robot.run` inside the Ractor, which currently fails for real robots (`RunConfig` in core is not Ractor-safe) — only simulated/stubbed pipelines run end to end.
 
 ```ruby
 scheduler = RactorNetworkScheduler.new(memory: shared_memory)
@@ -40,7 +40,7 @@ results = scheduler.run_pipeline([
 scheduler.shutdown
 ```
 
-**`RactorBoundary`** (`ractor_boundary.rb`) — Utility for crossing Ractor boundaries. `freeze_deep(obj)` recursively freezes Hash/Array structures and calls `Ractor.make_shareable`. Raises `RactorBoundaryError` if the value cannot be made shareable (e.g. a live IO or Proc).
+**`RactorBoundary`** (`ractor_boundary.rb`) — Utility for crossing Ractor boundaries. `freeze_deep(obj)` recursively freezes Hash/Array structures and calls `Ractor.make_shareable`. Raises `RactorBoundaryError` if the value cannot be made shareable (e.g. a `StringIO` or a Proc that closes over unshareable state).
 
 **`RactorMemoryProxy`** (`ractor_memory_proxy.rb`) — Wraps a `Memory` instance via `Ractor::Wrapper` so Ractor workers can read and write shared state. Only `get`, `set`, and `keys` are proxied; closures and subscriptions are not Ractor-safe and must use the thread-side Memory directly.
 
@@ -67,5 +67,5 @@ LLM calls via `ruby_llm` are NOT Ractor-safe — do not submit tools that call t
 ## Testing
 
 - Minitest with SimpleCov (branch coverage tracked, no minimum threshold enforced yet)
-- Tests use RobotLab stubs (the full `robot_lab` gem is NOT loaded in tests — see `test_helper.rb`)
-- Coverage baseline: ~55% line / ~32% branch
+- Unit tests use RobotLab stubs from `test_helper.rb` rather than requiring `robot_lab`; `test/robot_lab/tool_pool_routing_test.rb` is the exception — it requires the full `robot_lab` gem plus `robot_lab/ractor` (and skips itself on `LoadError`)
+- Coverage baseline: ~72% line / ~55% branch

@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Example 29: Ractor-Safe CPU Tools
+# Example 1: Ractor-Safe CPU Tools
 #
 # Demonstrates Track 1 of RobotLab's Ractor parallelism: CPU-bound tools
 # that bypass Ruby's GVL by running inside a pool of Ractor workers.
@@ -17,7 +17,7 @@
 #   - Parallel batch    — many threads submitting concurrently vs sequentially
 #
 # Usage (no LLM API key required):
-#   bundle exec ruby examples/29_ractor_tools.rb
+#   bundle exec ruby examples/01_ractor_tools.rb
 #
 # Good to know:
 #   Ractor dispatch has a fixed overhead of ~20 ms per job (reply-queue

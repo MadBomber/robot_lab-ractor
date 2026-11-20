@@ -24,13 +24,13 @@ gem "robot_lab-ractor"
 
 ## CPU-Bound Tools
 
-Mark a tool `ractor_safe true` and RobotLab automatically routes its calls through the global `RactorWorkerPool` instead of running inline:
+Mark a `RobotLab::Tool` subclass `ractor_safe true` and RobotLab automatically routes its calls through the global `RactorWorkerPool` instead of running inline:
 
 ```ruby
-class TranscribeAudio < RubyLLM::Tool
+class TranscribeAudio < RobotLab::Tool
   ractor_safe true
   description "Transcribe an audio file"
-  param :path, type: :string, desc: "Path to audio file"
+  parameter :path, type: :string, description: "Path to audio file"
 
   def execute(path:)
     AudioTranscriber.run(path)  # pure computation, no shared mutable state
@@ -49,10 +49,10 @@ puts result.last_text_content
 
 ## Parallel Robot Networks
 
-Pass `parallel_mode: :ractor` when creating a network to dispatch independent robots across hardware threads simultaneously:
+Pass `parallel_mode: :ractor` to `RobotLab::Network.new` (`RobotLab.create_network` does not accept it) to dispatch independent robots across hardware threads simultaneously. Each robot's `name` must match its task name: the scheduler keys completed results by robot name, while `depends_on` refers to task names. If they differ, dependent tasks never become ready and `run` raises `RobotLab::Error` ("Circular dependency or unresolvable deps").
 
 ```ruby
-network = RobotLab.create_network(name: "analysis", parallel_mode: :ractor) do
+network = RobotLab::Network.new(name: "analysis", parallel_mode: :ractor) do
   task :fetch,     fetcher_robot,    depends_on: :none
   task :sentiment, sentiment_robot,  depends_on: [:fetch]
   task :entities,  entity_robot,     depends_on: [:fetch]   # runs in parallel with :sentiment
@@ -65,10 +65,13 @@ results = network.run(message: "Analyze customer feedback")
 
 The scheduler builds a DAG from the `depends_on:` declarations and fires each stage as soon as its dependencies resolve.
 
+> [!WARNING]
+> Live robot runs do not work in Ractor mode yet: `Robot.new` raises `defined with an un-shareable Proc in a different Ractor` inside a worker, so a real `network.run` fails with `RobotLab::Error: Robot '<name>' failed in Ractor: ...`. The wave scheduling itself is demonstrated with a simulated scheduler in `examples/02_ractor_network.rb`.
+
 ## Pool Management
 
 ```ruby
-# Pool is lazily created on first use
+# Pool is lazily created on first use (one worker per CPU core)
 pool = RobotLab.ractor_pool
 
 # Drain and shut down explicitly (e.g. at process exit)

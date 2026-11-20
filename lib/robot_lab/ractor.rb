@@ -16,9 +16,13 @@ require_relative 'ractor_worker_pool'
 require_relative 'ractor_memory_proxy'
 require_relative 'ractor_network_scheduler'
 
-# Extend the RobotLab module with Ractor pool lifecycle methods.
-# Once robot_lab removes its own copies and adds robot_lab-ractor as a
-# dependency, this becomes the single source of truth for ractor_pool.
+# Extend the RobotLab module with Ractor pool lifecycle methods. This gem is
+# the single source of truth for ractor_pool: robot_lab core ships no Ractor
+# files and calls RobotLab.ractor_pool only when this extension is loaded.
+#
+# The pool size comes from RobotLab.config.ractor_pool_size when core's Config
+# defines that setting. As of robot_lab 0.6.1 it does not, so the pool is
+# always sized :auto (Etc.nprocessors).
 module RobotLab
   class << self
     def ractor_pool

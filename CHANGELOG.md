@@ -1,5 +1,17 @@
 ## [Unreleased]
 
+### Fixed
+- `RactorNetworkScheduler`: a dependent task now receives its own dependencies' results as its message instead of whichever result happened to complete last. One dependency passes that result through unchanged; several are combined as `[name]` + result blocks in `depends_on` order, separated by a blank line (`RactorNetworkScheduler.message_for`).
+- `sig/robot_lab/ractor.rbs` now declares `RobotLab::RactorPool::VERSION` instead of a `RobotLab::Ractor` module that must never exist.
+- Example 02's live run is now opt-in via `RACTOR_LIVE=1` (it uses the local LM Studio provider; the old `ANTHROPIC_API_KEY` gate was wrong). Example usage headers use the real file names.
+
+### Changed
+- `RactorNetworkScheduler#memory` reader added. The `memory:` argument is retained but, as before, not shared with workers; comments and docs now say so.
+- Docs and code comments corrected to match the code: `RobotLab::Tool` / `parameter` DSL, `RobotLab::Network.new(parallel_mode: :ractor)`, global pool sizing, and the current limitation that robots cannot be constructed inside a worker Ractor.
+
+### Removed
+- `examples/xyzzy.rb` — unused; example 03 loads the Ractor-safe `Xyzzy` from the `robot_lab` checkout.
+
 ## [0.6.1] - 2026-11-19
 
 ### Changed

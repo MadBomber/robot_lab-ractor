@@ -31,7 +31,7 @@ require "robot_lab/ractor"
 # Mark a tool as Ractor-safe to route it through the pool
 class NumberCruncher < RobotLab::Tool
   description "CPU-intensive calculation"
-  param :n, type: "number", desc: "Input"
+  parameter :n, type: "number", description: "Input"
   ractor_safe true
 
   def execute(n:)
@@ -53,7 +53,7 @@ puts result.last_text_content
 ## Pool Management
 
 ```ruby
-# Pool is lazily created on first use
+# Pool is lazily created on first use (one worker per CPU core)
 pool = RobotLab.ractor_pool
 
 # Drain and shut down explicitly (e.g. at process exit)

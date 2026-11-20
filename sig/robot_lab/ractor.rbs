@@ -1,6 +1,7 @@
 module RobotLab
-  module Ractor
+  # The version lives in RactorPool, not RobotLab::Ractor: defining a
+  # RobotLab::Ractor module would shadow Ruby's built-in Ractor class.
+  module RactorPool
     VERSION: String
-    # See the writing guide of rbs: https://github.com/ruby/rbs#guides
   end
 end

@@ -61,6 +61,7 @@ module RobotLab
 
     # Gracefully shut down the pool via poison-pill pattern.
     # @return [void]
+    # :reek:UncommunicativeVariableName -- single-char block param (w = worker) is accepted project convention.
     def shutdown
       return if @closed
 

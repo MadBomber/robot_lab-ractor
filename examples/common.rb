@@ -7,6 +7,7 @@ $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 
 require "robot_lab"
 require "robot_lab/ractor"
+require "ruby_llm/providers/lms"
 
 # Unbuffered stdout so Ractor-generated output interleaves correctly with
 # main-thread headers when viewed in a terminal or redirected to a pipe.
@@ -15,13 +16,12 @@ $stdout.sync = true
 # Fallback for when direnv has not activated examples/.envrc
 ENV["ROBOT_LAB_TEMPLATE_PATH"] ||= File.join(__dir__, "prompts")
 
+# Local models via LM Studio (ruby_llm-providers-lms). qwen3.8 for the
+# tool-heavy demos; no API keys needed.
 RubyLLM.configure do |c|
-  c.logger                 = Logger.new(File::NULL)
-  c.default_model          = "claude-haiku-4-5-20251001"
-  c.anthropic_api_key      = ENV["ANTHROPIC_API_KEY"]
-  c.openai_api_key         = ENV["OPENAI_API_KEY"]
-  c.openai_organization_id = ENV["OPENAI_ORGANIZATION_ID"]
-  c.openai_project_id      = ENV["OPENAI_PROJECT_ID"]
+  c.logger        = Logger.new(File::NULL)
+  c.default_model = "qwen/qwen3.8-27b"
+  c.lms_api_base  = ENV.fetch("LMS_API_BASE", "http://localhost:1234/v1")
 end
 
 RobotLab.configure do |c|

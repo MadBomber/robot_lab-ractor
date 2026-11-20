@@ -138,27 +138,28 @@ section("Part 2: Network.new(parallel_mode: :ractor)")
 # routes through RactorNetworkScheduler instead of SimpleFlow::Pipeline.
 # The default mode is :async (unchanged SimpleFlow behavior).
 
-model = "claude-haiku-4-5-20251001"
+model    = "qwen/qwen3.8-27b"
+provider = "lms"
 
 network = RobotLab::Network.new(name: "research_pipeline", parallel_mode: :ractor) do
   task :headline_finder,  RobotLab.build(name: "headline_finder",
                                           system_prompt: "Find the 3 most relevant news headlines. Be concise.",
-                                          model: model),
+                                          model: model, provider: provider),
        depends_on: :none
 
   task :background_brief, RobotLab.build(name: "background_brief",
                                           system_prompt: "Provide a 2-sentence background on the topic.",
-                                          model: model),
+                                          model: model, provider: provider),
        depends_on: :none
 
   task :fact_checker,     RobotLab.build(name: "fact_checker",
                                           system_prompt: "List 3 verifiable facts about the topic.",
-                                          model: model),
+                                          model: model, provider: provider),
        depends_on: :none
 
   task :report_writer,    RobotLab.build(name: "report_writer",
                                           system_prompt: "Synthesize the provided context into a 3-sentence report.",
-                                          model: model),
+                                          model: model, provider: provider),
        depends_on: ["headline_finder", "background_brief", "fact_checker"]
 end
 

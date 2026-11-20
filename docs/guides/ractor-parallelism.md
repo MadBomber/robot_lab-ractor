@@ -44,16 +44,16 @@ Both tracks share the same frozen-data convention: all values crossing a Ractor 
 
 ### Declaring a Tool as Ractor-Safe
 
-Add `ractor_safe true` to any `RubyLLM::Tool` or `RobotLab::Tool` subclass:
+Add `ractor_safe true` to any `RobotLab::Tool` subclass (the DSL and the pool routing live in `RobotLab::Tool`, not `RubyLLM::Tool`):
 
 ```ruby
-class TranscribeAudio < RubyLLM::Tool
+class TranscribeAudio < RobotLab::Tool
   ractor_safe true
 
   description "Transcribe an audio file to text"
 
-  param :path,   type: :string, desc: "Absolute path to the audio file"
-  param :format, type: :string, desc: "Audio format (wav, mp3, ogg)", required: false
+  parameter :path,   type: :string, description: "Absolute path to the audio file"
+  parameter :format, type: :string, description: "Audio format (wav, mp3, ogg)", required: false
 
   def execute(path:, format: "wav")
     # Pure computation — no shared mutable state, no IO closures
@@ -67,7 +67,7 @@ When a robot calls this tool, RobotLab automatically routes the call through the
 `ractor_safe` is inherited. If you declare it on a base class, all subclasses are also treated as Ractor-safe:
 
 ```ruby
-class BaseAudioTool < RubyLLM::Tool
+class BaseAudioTool < RobotLab::Tool
   ractor_safe true
 end
 
@@ -91,10 +91,10 @@ A tool is safe to run inside a Ractor when its `execute` method:
 
 ```ruby
 # Safe: all inputs arrive as frozen args; result is fresh
-class HashContent < RubyLLM::Tool
+class HashContent < RobotLab::Tool
   ractor_safe true
   description "SHA-256 hash of a string"
-  param :text, type: :string, desc: "Text to hash"
+  parameter :text, type: :string, description: "Text to hash"
 
   def execute(text:)
     require "digest"
@@ -103,7 +103,7 @@ class HashContent < RubyLLM::Tool
 end
 
 # Not safe: reads and writes @@cache (shared mutable state)
-class CachedLookup < RubyLLM::Tool
+class CachedLookup < RobotLab::Tool
   @@cache = {}  # mutable class variable — NOT Ractor-safe
 
   def execute(key:)
@@ -114,19 +114,14 @@ end
 
 ### Configuring the Worker Pool
 
-The global pool is created lazily on first use. You can control its size through `RunConfig`:
+The global pool is created lazily on first use with one worker per CPU core (`Etc.nprocessors`). Its size is not currently configurable: `RobotLab.ractor_pool` looks for a `ractor_pool_size` setting on `RobotLab.config`, but core's `Config` does not define one (`config.ractor_pool_size = 8` raises `NoMethodError`), and the `ractor_pool_size` field that `RunConfig` accepts is not read when the pool is built.
+
+If you need a specific worker count, build a pool yourself and submit to it directly:
 
 ```ruby
-RobotLab.configure do |config|
-  config.ractor_pool_size = 8  # default: Etc.nprocessors
-end
-```
-
-Or per-robot / per-network via `RunConfig`:
-
-```ruby
-config = RobotLab::RunConfig.new(ractor_pool_size: 4)
-robot  = RobotLab.build(name: "cruncher", config: config, ...)
+pool   = RobotLab::RactorWorkerPool.new(size: 4)   # default size: :auto (Etc.nprocessors)
+result = pool.submit("HashContent", { text: "hello" })
+pool.shutdown
 ```
 
 Access the shared pool directly:
@@ -142,10 +137,10 @@ RobotLab.shutdown_ractor_pool     # graceful shutdown (poison-pill pattern)
 
 ### Enabling Ractor Mode
 
-Pass `parallel_mode: :ractor` when creating a network:
+Pass `parallel_mode: :ractor` to `RobotLab::Network.new` (the `RobotLab.create_network` factory does not accept `parallel_mode`):
 
 ```ruby
-network = RobotLab.create_network(name: "analysis", parallel_mode: :ractor) do
+network = RobotLab::Network.new(name: "analysis", parallel_mode: :ractor) do
   task :fetch,     fetcher_robot,    depends_on: :none
   task :sentiment, sentiment_robot,  depends_on: [:fetch]
   task :entities,  entity_robot,     depends_on: [:fetch]
@@ -157,21 +152,44 @@ result = network.run(message: "Analyze customer feedback")
 
 When `parallel_mode: :ractor` is set, `Network#run` delegates to `RactorNetworkScheduler` instead of the default `SimpleFlow::Pipeline` executor. The default is `:async` (unchanged behavior).
 
+Each robot's `name` must match its task name: the scheduler keys completed results by robot name, while `depends_on` refers to task names. If they differ, dependent tasks never become ready and `run` raises `RobotLab::Error` ("Circular dependency or unresolvable deps").
+
+!!! warning "Live robot runs do not work in Ractor mode yet"
+    A `RobotLab::Robot` cannot currently be constructed inside a non-main Ractor: `Robot.new` raises `defined with an un-shareable Proc in a different Ractor` from core's `RunConfig` accessors. A real `network.run` in `:ractor` mode therefore fails with `RobotLab::Error: Robot '<name>' failed in Ractor: ...`. The scheduling machinery itself (waves, dependency ordering, result Hash) works and is demonstrated with a simulated scheduler in `examples/02_ractor_network.rb`.
+
 ### How It Works
 
-The scheduler builds a `RobotSpec` — a frozen, Ractor-shareable description — for each robot in the network, then dispatches them in dependency order:
+The network builds a `RobotSpec` — a frozen, Ractor-shareable description — for each robot, then hands them to the scheduler, which dispatches them in dependency order:
 
 1. **Partition** tasks into waves: tasks whose dependencies are all resolved are dispatched together.
 2. **Each wave** spawns one thread per task; each thread submits a `RactorJob` to the shared work queue and blocks on the per-job reply queue.
 3. **Worker Ractors** pop jobs, construct a fresh `Robot` from the spec, call `robot.run(message)`, and push the frozen result string back.
-4. **LLM calls** (ruby_llm) always happen in threads — Ractors hand off network I/O naturally since the thread is doing the blocking.
+4. **Everything in step 3 runs inside the worker Ractor**, including the LLM call made by `robot.run` — there is no hand-off back to a thread.
 
 ```
 Wave 1:  [ fetch ]
-           ↓ result passed to next wave
+           ↓ fetch's result is the message for both dependents
 Wave 2:  [ sentiment | entities ]   ← run in parallel
-           ↓ both results available
+           ↓ both results are combined into summarize's message
 Wave 3:  [ summarize ]
+```
+
+Each task's message is built from its own dependencies' results (`RactorNetworkScheduler.message_for`):
+
+| Dependencies | Message the robot receives |
+|---|---|
+| none (`:none` / `:optional`) | the original `message` passed to `run` |
+| one | that dependency's result, unchanged |
+| several | one `[name]` line followed by that dependency's result, per dependency, in the order `depends_on` lists them, separated by a blank line |
+
+For `summarize` above, the message is:
+
+```
+[sentiment]
+<sentiment result>
+
+[entities]
+<entities result>
 ```
 
 The return value of `run` is a `Hash` mapping robot name strings to their result strings:
@@ -192,7 +210,7 @@ Dependency semantics mirror those of `SimpleFlow::Pipeline`:
 | `["task_a", "task_b"]` | Waits until both `task_a` and `task_b` complete |
 
 ```ruby
-RobotLab.create_network(name: "pipeline", parallel_mode: :ractor) do
+RobotLab::Network.new(name: "pipeline", parallel_mode: :ractor) do
   task :ingest,    ingester,  depends_on: :none
   task :classify,  classifier, depends_on: ["ingest"]
   task :summarize, summarizer, depends_on: ["ingest"]
@@ -206,7 +224,7 @@ end
 
 Robots running in Ractor workers cannot share a standard `Memory` instance directly — it contains mutable Ruby objects. RobotLab solves this with `RactorMemoryProxy`, which wraps a `Memory` via `Ractor::Wrapper`.
 
-You typically interact with the proxy from the thread side (before and after Ractor dispatch), not from inside workers. Workers receive the frozen result string; the scheduler stores it in `completed` for subsequent waves.
+You typically interact with the proxy from the thread side (before and after Ractor dispatch), not from inside workers. Workers return a frozen result string; the scheduler stores it in `completed` for subsequent waves. The scheduler does not create a proxy or pass one to worker robots — its `memory:` argument is only retained (readable as `scheduler.memory`), so wiring a proxy into your own Ractor code is up to you.
 
 For cases where you need Ractor workers to write into shared memory at runtime, use the proxy's Ractor-shareable stub:
 
@@ -235,14 +253,15 @@ Values written via `set` are automatically deep-frozen before crossing the bound
 classes across the Ractor boundary so the full hook pipeline still fires
 inside each worker.
 
-When the scheduler builds a `RobotSpec`, it collects handler classes from all
+When the network builds a `RobotSpec` for the scheduler, it collects handler classes from all
 three registration levels and stores them in the frozen `hook_classes` field:
 
 ```ruby
 def ractor_hook_classes_for(robot)
   [RobotLab.hooks, @hooks, robot.hooks]
-    .flat_map { |r| r.registrations.map(&:handler_class) }
-    .uniq.freeze
+    .flat_map { |registry| registry.registrations.map(&:handler_class) }
+    .uniq
+    .freeze
 end
 ```
 
@@ -289,8 +308,8 @@ statelessness rules as a Ractor-safe tool:
 handlers (`TraceHook`, `PerfHook`) plus `RobotLab::Xyzzy` — a fully
 Ractor-safe tracer covering all five hook families (`run`, `llm_generation`,
 `tool_call`, `network_run`, `task`) — run directly against the hook mechanic
-without touching `ruby_llm` (which has class-level Proc callbacks that
-prevent construction inside Ractors today).
+without constructing a `RobotLab::Robot` (which cannot be built inside a
+non-main Ractor today — see the warning under Track 2).
 
 ---
 
@@ -356,7 +375,8 @@ end
 
 | Parameter | Where | Default | Description |
 |---|---|---|---|
-| `ractor_pool_size` | `RunConfig` / global config | `Etc.nprocessors` | Worker count for `RactorWorkerPool` |
+| `size` | `RactorWorkerPool.new` | `:auto` (`Etc.nprocessors`) | Worker count for a pool you build yourself; the global `RobotLab.ractor_pool` always uses `:auto` |
+| `ractor_pool_size` | `RunConfig` | — | Accepted as a field but not currently read by the pool |
 | `parallel_mode` | `Network.new` | `:async` | `:async` (SimpleFlow) or `:ractor` (RactorNetworkScheduler) |
 
 ---
@@ -372,20 +392,22 @@ Ractors add overhead: freezing data, queue coordination, thread synchronization.
 The safest Ractor-safe tool is a pure function:
 
 ```ruby
-class NormalizeText < RubyLLM::Tool
+class NormalizeText < RobotLab::Tool
   ractor_safe true
-  description "Unicode-normalize and strip a string"
-  param :text, type: :string, desc: "Input text"
+  description "Strip and collapse whitespace in a string"
+  parameter :text, type: :string, description: "Input text"
 
   def execute(text:)
-    text.unicode_normalize(:nfkc).strip
+    text.strip.squeeze(" ")
   end
 end
 ```
 
+Even pure-looking stdlib calls can fail in a worker: `String#unicode_normalize`, for example, reads unshareable constants (`UnicodeNormalize::REGEXP_K`) and raises `Ractor::IsolationError`, surfaced as a `RobotLab::ToolError`.
+
 ### 3. Freeze Tool Return Values
 
-Tool results travel back through the reply queue — freeze them proactively to avoid the overhead of `Ractor.make_shareable`:
+Tool results travel back through the reply queue — freeze them proactively so the worker does not have to `dup` the result before making it shareable:
 
 ```ruby
 def execute(id:)
@@ -395,11 +417,11 @@ end
 
 ### 4. Parallel Mode Doesn't Share Robot Instances
 
-Each Ractor worker constructs a **fresh Robot** from the frozen spec. Side-effects on the original robot objects (callbacks, in-memory state) are not visible inside workers. Use `Memory` (via `RactorMemoryProxy`) for shared state.
+Each Ractor worker constructs a **fresh Robot** from the frozen spec. Side-effects on the original robot objects (callbacks, in-memory state) are not visible inside workers. Use `Memory` (via a `RactorMemoryProxy` stub you pass in yourself) for shared state.
 
-### 5. LLM Calls Stay in Threads
+### 5. LLM Calls Are Not Ractor-Safe
 
-`ruby_llm` is not Ractor-safe. Workers spawn a Thread internally for each LLM call and block the Ractor fiber on the thread result. This is transparent — you don't need to do anything — but it means robot-mode Ractors are I/O-concurrent, not purely CPU-parallel.
+The scheduler does not move LLM calls onto threads: each worker builds its robot and calls `robot.run` inside the Ractor. Because robot construction is not Ractor-safe today (see the warning under Track 2), keep LLM-calling robots on the default `:async` mode, and never mark a tool that calls an LLM as `ractor_safe`.
 
 ### 6. Shut Down the Pool Cleanly
 
@@ -416,7 +438,7 @@ at_exit { RobotLab.shutdown_ractor_pool }
 - **No closures across boundaries.** Procs and lambdas cannot cross Ractor boundaries. Callbacks (`on_tool_call`, `on_tool_result`) registered on the outer robot are not available inside workers.
 - **No mutable class-level state.** Class variables and module globals accessed from `execute` must be frozen.
 - **`parallel_mode: :ractor` returns a plain Hash**, not a `SimpleFlow::Result`. If downstream code depends on `result.context` or `result.value`, use `:async` mode.
-- **Memory subscriptions don't transfer.** Subscriptions registered on the outer `Memory` before a Ractor dispatch are not triggered by writes made via `RactorMemoryProxy#set` inside workers during the run.
+- **Memory subscriptions stay on the thread side.** Subscription callbacks are closures, so they cannot be registered from inside a worker. Writes made through the proxy stub are applied to the wrapped `Memory`, so subscriptions already registered on it do fire — in the Ractor that owns the `Memory`, not in the worker.
 - **Ruby version.** This gem requires Ruby 4.0.9+. `Ractor#value` / `Ractor#join` are the supported APIs from Ruby 4.0 onwards (`Ractor#take` was removed).
 
 ---
@@ -433,7 +455,9 @@ bundle exec ruby examples/03_ractor_hooks.rb
 
 ## Next Steps
 
-- [Using Tools](using-tools.md) — Tool definitions and configuration
-- [Creating Networks](creating-networks.md) — Network orchestration patterns
-- [Memory System](memory.md) — Shared data between robots
-- [API Reference: Network](../api/core/network.md) — Complete Network API
+These live in the RobotLab core documentation:
+
+- [Using Tools](https://madbomber.github.io/robot_lab/guides/using-tools/) — Tool definitions and configuration
+- [Creating Networks](https://madbomber.github.io/robot_lab/guides/creating-networks/) — Network orchestration patterns
+- [Memory System](https://madbomber.github.io/robot_lab/guides/memory/) — Shared data between robots
+- [API Reference: Network](https://madbomber.github.io/robot_lab/api/core/network/) — Complete Network API

@@ -14,10 +14,10 @@ $LOAD_PATH.unshift File.expand_path('../lib', __dir__)
 
 require 'ractor_queue'
 
-# Minimal RobotLab stubs so the data-carrier and boundary tests run
-# without loading robot_lab (which still ships its own ractor files).
-# Once robot_lab removes those files and adds robot_lab-ractor as a
-# dependency, replace this block with: require "robot_lab/ractor"
+# Minimal RobotLab stubs so the unit tests (data carriers, boundary,
+# scheduler) run without loading robot_lab. Every stub is guarded with
+# `unless defined?`, so tests that do load the full gem
+# (tool_pool_routing_test.rb) coexist with them in one process.
 module RobotLab
   class Error < StandardError; end           unless defined?(Error)
   unless defined?(RactorBoundaryError)

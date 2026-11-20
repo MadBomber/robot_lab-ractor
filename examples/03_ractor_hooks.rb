@@ -1,14 +1,15 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Example 31: Hook System in Ractor Context
+# Example 3: Hook System in Ractor Context
 #
 # Demonstrates that RobotLab::Hook handler classes fire correctly inside
 # Ractor workers. Handler classes are Ruby constants, so they cross Ractor
 # boundaries natively and their class methods run in whichever Ractor calls them.
 #
-# The demo bypasses RobotLab::Robot and ruby_llm entirely (ruby_llm has class-
-# level Proc callbacks that prevent construction inside Ractors today). Instead
+# The demo bypasses RobotLab::Robot and ruby_llm entirely (a Robot cannot be
+# constructed inside a non-main Ractor today: robot_lab's RunConfig accessors
+# are defined with non-shareable Procs). Instead
 # it calls TraceHook / PerfHook directly with a minimal mock context, isolating
 # the hook mechanic from the LLM layer.
 #

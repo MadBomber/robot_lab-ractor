@@ -3,13 +3,23 @@
 module RobotLab
   # Schedules frozen robot task descriptions across Ractor workers.
   #
-  # Robots stay in threads for LLM calls (ruby_llm is not Ractor-safe).
   # The scheduler distributes frozen RobotSpec payloads; each worker
-  # constructs a fresh Robot, runs the task, and returns a frozen result.
+  # constructs a fresh Robot and runs it (LLM call included) inside the
+  # Ractor, then returns a frozen result. One thread per ready task waits
+  # on the worker's reply; no robot work happens on those threads.
+  #
+  # NOTE: robot_lab core cannot yet build a Robot inside a non-main Ractor
+  # (RunConfig's define_method accessors are not Ractor-shareable), so real
+  # robots currently fail with RobotLab::Error. The scheduling itself is
+  # exercised by overriding execute_spec (see examples/02_ractor_network.rb).
   #
   # Task ordering respects depends_on: tasks are only dispatched once all
   # named dependencies have resolved (same topological semantics as
-  # SimpleFlow::Pipeline).
+  # SimpleFlow::Pipeline). Results are keyed by RobotSpec#name, and
+  # depends_on entries are matched against those same names.
+  #
+  # Each task's message is built from its own dependencies' results — see
+  # RactorNetworkScheduler.message_for.
   #
   # @example
   #   scheduler = RactorNetworkScheduler.new(memory: shared_memory)
@@ -22,7 +32,15 @@ module RobotLab
   class RactorNetworkScheduler
     QUEUE_CAPACITY = 256
 
-    # @param memory [Memory] shared network memory for all robot tasks
+    # Separator between dependency results in a multi-dependency message.
+    RESULT_SEPARATOR = "\n\n"
+
+    attr_reader :memory
+
+    # @param memory [Memory] the network's memory. Accepted for API
+    #   compatibility with Network and exposed via #memory, but NOT shared
+    #   with workers: a Memory cannot cross a Ractor boundary and no
+    #   RactorMemoryProxy is created or handed to worker robots.
     # @param pool_size [Integer, :auto] number of Ractor workers
     def initialize(memory:, pool_size: :auto)
       @memory  = memory
@@ -43,7 +61,9 @@ module RobotLab
     # Run a pipeline of specs in dependency order.
     #
     # @param specs_with_deps [Array<Hash>] each entry has :spec and :depends_on
-    # @param message [String] initial message passed to entry-point robots
+    # @param message [String] initial message passed to entry-point robots;
+    #   dependent robots receive their dependencies' results instead
+    #   (see .message_for)
     # @return [Hash<String, String>] name => result for each completed robot
     def run_pipeline(specs_with_deps, message:)
       completed = {}
@@ -97,6 +117,35 @@ module RobotLab
       robot.run(message).last_text_content.to_s.freeze
     end
 
+    # Build the message for one task from its dependencies' results.
+    #
+    # - no dependencies (:none, :optional, or empty) => the fallback message
+    # - one dependency  => that dependency's result, unchanged
+    # - several         => one "[name]\nresult" block per dependency, in the
+    #                      order depends_on declares them, joined by a blank line
+    #
+    # @param deps [Symbol, Array<String>] the entry's :depends_on value
+    # @param completed [Hash<String, String>] name => result of finished tasks
+    # @param fallback [String] the pipeline's initial message
+    # @return [String]
+    def self.message_for(deps, completed, fallback)
+      names = dependency_names(deps)
+      return fallback if names.empty?
+      return completed.fetch(names.first) if names.one?
+
+      names.map { |name| "[#{name}]\n#{completed.fetch(name)}" }.join(RESULT_SEPARATOR)
+    end
+
+    # Normalise a :depends_on value to the list of names that must complete first.
+    #
+    # @param deps [Symbol, Array<String>, nil]
+    # @return [Array] empty for :none / :optional / nil
+    def self.dependency_names(deps)
+      return [] if %i[none optional].include?(deps)
+
+      Array(deps)
+    end
+
     def self.wrap_error(err)
       RobotLab::RactorJobError.new(
         message: err.message.freeze,
@@ -140,15 +189,14 @@ module RobotLab
     # :reek:FeatureEnvy :reek:NestedIterators -- readiness predicate over each entry's depends_on list; the inner all? defines "ready".
     def partition_ready(remaining, completed)
       remaining.partition do |entry|
-        deps = entry[:depends_on]
-        deps == :none || deps == :optional || Array(deps).all? { |d| completed.key?(d) }
+        self.class.dependency_names(entry[:depends_on]).all? { |d| completed.key?(d) }
       end
     end
 
     def dispatch_ready(ready, completed, message)
       ready.map do |entry|
         spec = entry[:spec]
-        msg  = completed.values.last || message
+        msg  = self.class.message_for(entry[:depends_on], completed, message)
         Thread.new { [spec.name, execute_spec(spec, msg)] }.tap { |t| t.report_on_exception = false }
       end
     end

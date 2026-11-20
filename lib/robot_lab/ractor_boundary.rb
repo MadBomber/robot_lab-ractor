@@ -4,7 +4,8 @@ module RobotLab
   # Utility for making values safe to pass across Ractor boundaries.
   #
   # Recursively freezes Hash and Array structures. Raises RactorBoundaryError
-  # if a value cannot be made Ractor-shareable (e.g. a live IO or Proc).
+  # if a value cannot be made Ractor-shareable (e.g. a StringIO, or a Proc
+  # whose self is not shareable).
   #
   # @example
   #   safe = RactorBoundary.freeze_deep({ model: "sonnet", args: { x: 1 } })

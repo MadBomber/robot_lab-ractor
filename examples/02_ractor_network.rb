@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Example 30: Ractor Network Scheduler
+# Example 2: Ractor Network Scheduler
 #
 # Demonstrates Track 2 of RobotLab's Ractor parallelism: running a
 # multi-robot pipeline under RactorNetworkScheduler, which dispatches
@@ -21,14 +21,17 @@
 #
 # Part 2 — Network.new(parallel_mode: :ractor) API walkthrough.
 #   Shows how to configure the network and inspects the dependency graph.
-#   No run() call is made, so no API key is required.
+#   No run() call is made, so no model is required.
 #
-# Part 3 — live LLM run (optional).
-#   Executes automatically when ANTHROPIC_API_KEY is set.
+# Part 3 — live LLM run (optional, opt-in).
+#   Runs only when RACTOR_LIVE=1 is set. The robots use the local LM Studio
+#   provider configured in common.rb (no API key). Today the run is expected
+#   to fail before reaching the model: robot_lab cannot yet construct a Robot
+#   inside a non-main Ractor.
 #
 # Usage:
-#   bundle exec ruby examples/30_ractor_network.rb              # Parts 1 & 2
-#   ANTHROPIC_API_KEY=key ruby examples/30_ractor_network.rb    # Parts 1, 2 & 3
+#   bundle exec ruby examples/02_ractor_network.rb                # Parts 1 & 2
+#   RACTOR_LIVE=1 bundle exec ruby examples/02_ractor_network.rb  # Parts 1, 2 & 3
 
 require_relative "common"
 
@@ -185,12 +188,12 @@ puts "    • Return value is a Hash { robot_name => result_string }"
 puts
 
 # =============================================================================
-# Part 3: Live LLM run (optional — requires ANTHROPIC_API_KEY)
+# Part 3: Live LLM run (optional — opt in with RACTOR_LIVE=1; uses LM Studio)
 # =============================================================================
 
-unless ENV["ANTHROPIC_API_KEY"]
+unless ENV["RACTOR_LIVE"] == "1"
   section("Part 3: Live LLM run")
-  puts "   Set ANTHROPIC_API_KEY to run the real pipeline."
+  puts "   Set RACTOR_LIVE=1 to attempt the real pipeline (LM Studio, no API key)."
   puts "   Expected behavior: headline_finder, background_brief, and"
   puts "   fact_checker run in parallel; report_writer follows."
   puts
@@ -198,7 +201,7 @@ unless ENV["ANTHROPIC_API_KEY"]
   exit 0
 end
 
-section("Part 3: Live LLM run (ANTHROPIC_API_KEY detected)")
+section("Part 3: Live LLM run (RACTOR_LIVE=1)")
 
 puts "  Running 4-robot research pipeline on:"
 puts "  \"#{topic}\""
@@ -224,16 +227,14 @@ begin
 rescue Ractor::IsolationError, Ractor::Error => e
   puts "  Ractor error: #{e.class}: #{e.message[0..100]}"
   puts
-  puts "  ruby_llm is not yet Ractor-safe: it uses Procs in class"
-  puts "  definitions that cannot cross Ractor boundaries."
-  puts "  Track this at: https://github.com/crmne/ruby_llm"
+  puts "  A Robot cannot yet be constructed inside a non-main Ractor."
 
 rescue RobotLab::Error => e
   if e.message.include?("un-shareable Proc")
-    puts "  Live LLM runs require ruby_llm to be Ractor-safe."
-    puts "  ruby_llm stores Procs in class-level hooks that cannot cross"
-    puts "  Ractor boundaries. Part 1 (SimulatedScheduler) demonstrates wave"
-    puts "  ordering today; Part 3 will work once ruby_llm gains Ractor support."
+    puts "  Live runs need Robot construction to be Ractor-safe. Today"
+    puts "  robot_lab's RunConfig accessors are defined with non-shareable"
+    puts "  Procs, so Robot.new fails inside a worker. Part 1"
+    puts "  (SimulatedScheduler) demonstrates wave ordering today."
   else
     puts "  RobotLab::Error: #{e.message}"
   end

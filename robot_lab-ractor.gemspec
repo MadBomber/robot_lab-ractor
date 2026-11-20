@@ -18,7 +18,7 @@ Gem::Specification.new do |spec|
   spec.homepage = 'https://github.com/MadBomber/robot_lab-ractor'
   spec.license  = 'MIT'
 
-  spec.required_ruby_version = '>= 4.0'
+  spec.required_ruby_version = '>= 4.0.9'
 
   spec.metadata['homepage_uri']    = spec.homepage
   spec.metadata['source_code_uri'] = spec.homepage
@@ -37,5 +37,5 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency 'ractor_queue'
   spec.add_dependency 'ractor-wrapper'
-  spec.add_dependency 'robot_lab', '~> 0.3.0'
+  spec.add_dependency 'robot_lab', '~> 0.6'
 end

@@ -417,7 +417,7 @@ at_exit { RobotLab.shutdown_ractor_pool }
 - **No mutable class-level state.** Class variables and module globals accessed from `execute` must be frozen.
 - **`parallel_mode: :ractor` returns a plain Hash**, not a `SimpleFlow::Result`. If downstream code depends on `result.context` or `result.value`, use `:async` mode.
 - **Memory subscriptions don't transfer.** Subscriptions registered on the outer `Memory` before a Ractor dispatch are not triggered by writes made via `RactorMemoryProxy#set` inside workers during the run.
-- **Ruby version.** Ractors require Ruby 3.0+. `Ractor#value` / `Ractor#join` are the supported APIs from Ruby 4.0 onwards (`Ractor#take` was removed).
+- **Ruby version.** This gem requires Ruby 4.0.9+. `Ractor#value` / `Ractor#join` are the supported APIs from Ruby 4.0 onwards (`Ractor#take` was removed).
 
 ---
 
